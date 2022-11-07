@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: LGPL-3.0-only
+// @author st4rgard3n, Collab.Land, Raid Guild
 pragma solidity >=0.8.0;
 
 import "@gnosis.pm/zodiac/contracts/core/Modifier.sol";
+import "./interfaces/ISafeSigner.sol";
 
 contract Delay is Modifier {
     event DelaySetup(
@@ -83,6 +85,12 @@ contract Delay is Modifier {
             "setUpModules has already been called"
         );
         modules[SENTINEL_MODULES] = SENTINEL_MODULES;
+    }
+
+    // @dev Enforces that caller is a signer on our safe
+    modifier onlySigner() {
+        require(ISafeSigner(avatar).isOwner(msg.sender) == true, "Invalid signer");
+        _;
     }
 
     /// @dev Sets the cooldown before a transaction can be executed.

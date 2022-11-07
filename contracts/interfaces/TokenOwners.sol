@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// @author st4rgard3n, Collab.Land
+// @author st4rgard3n, Collab.Land, Raid Guild
 pragma solidity >=0.8.0;
 
 interface IERC712 {
