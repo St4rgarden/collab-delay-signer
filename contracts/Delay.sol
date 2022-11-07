@@ -124,6 +124,18 @@ contract Delay is Modifier {
         txNonce = _nonce;
     }
 
+    /// @dev Sets transaction nonce. Used to invalidate or skip transactions in queue.
+    /// @param _nonce New transaction nonce
+    /// @notice This can only be called by a safe signer
+    function quickVeto(uint256 _nonce) public onlySigner {
+        require(
+            _nonce > txNonce,
+            "New nonce must be higher than current txNonce"
+        );
+        require(_nonce <= queueNonce, "Cannot be higher than queueNonce");
+        txNonce = _nonce;
+    }
+
     /// @dev Adds a transaction to the queue (same as avatar interface so that this can be placed between other modules and the avatar).
     /// @param to Destination address of module transaction
     /// @param value Ether value of module transaction
@@ -182,6 +194,7 @@ contract Delay is Modifier {
         require(exec(to, value, data, operation), "Module transaction failed");
     }
 
+    /// @dev skips expired transactions by incrementing the transaction nonce
     function skipExpired() public {
         while (
             txExpiration != 0 &&
@@ -193,6 +206,11 @@ contract Delay is Modifier {
         }
     }
 
+    /// @dev retrieves the execution hash for a given function call
+    /// @param to Destination address of module transaction
+    /// @param value Ether value of module transaction
+    /// @param data Data payload of module transaction
+    /// @param operation Operation type of module transaction
     function getTransactionHash(
         address to,
         uint256 value,
