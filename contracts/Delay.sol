@@ -48,7 +48,7 @@ contract Delay is Modifier {
         setUp(initParams);
     }
 
-    function setUp(bytes memory initParams) public override {
+    function setUp(bytes memory initParams) public initializer override {
         (
             address _owner,
             address _avatar,
@@ -226,5 +226,20 @@ contract Delay is Modifier {
 
     function getTxCreatedAt(uint256 _nonce) public view returns (uint256) {
         return (txCreatedAt[_nonce]);
+    }
+
+     /**
+     * @dev Locks the contract, preventing any future reinitialization. This cannot be part of an initializer call.
+     * Calling this in the constructor of a contract will prevent that contract from being initialized or reinitialized
+     * to any version. It is recommended to use this to lock implementation contracts that are designed to be called
+     * through proxies.
+     *
+     * Emits an {Initialized} event the first time it is successfully executed.
+     */
+    function _disableInitializers() internal virtual {
+        require(!_initializing, "Initializable: contract is initializing");
+        if (_initialized != true) {
+            _initialized = true;
+        }
     }
 }
