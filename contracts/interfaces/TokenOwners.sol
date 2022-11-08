@@ -32,9 +32,3 @@ interface IERC1155 {
     function balanceOf(address account, uint256 id) external view returns (uint256);
 
 }
-
-contract TokenOwners {
-
-    enum TokenTypes {ERC20, ERC721, ERC1155}
-
-}
