@@ -3,10 +3,13 @@
 pragma solidity >=0.8.0;
 
 import "@gnosis.pm/zodiac/contracts/core/Modifier.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "./interfaces/ISafeSigner.sol";
-import "./interfaces/TokenOwners.sol";
 
 contract Delay is Modifier {
+
+    using ECDSA for bytes32;
+
     event DelaySetup(
         address indexed initiator,
         address indexed owner,
@@ -21,12 +24,6 @@ contract Delay is Modifier {
         bytes data,
         Enum.Operation operation
     );
-
-    enum TokenType {ERC20, ERC721, ERC1155}
-
-    TokenType internal _tokenType;
-    uint256 internal _tokenThreshold;
-    address internal _token;
 
     uint256 internal _id1155;
 
@@ -44,33 +41,29 @@ contract Delay is Modifier {
     ///  _target Address of the contract that will call exec function
     ///  _cooldown Cooldown in seconds that should be required after a transaction is proposed
     ///  _expiration Duration that a proposed transaction is valid for after the cooldown, in seconds (or 0 if valid forever)
-    ///  tokenType required token to submit transaction to the queue
-    ///  tokenThreshold required amount of token
-    ///  token required token's contract address
-    ///  optional1155Id the 1155 id
     ///  There need to be at least 60 seconds between end of cooldown and expiration
 
-    constructor(bytes memory initParams) {
+    constructor(address _owner, address _avatar, address _target, uint256 _cooldown, uint256 _expiration) {
+
+        bytes memory initParams =
+            abi.encode(_owner, _avatar, _target, _cooldown, _expiration);
+
         setUp(initParams);
     }
 
     /// @dev initializes the contracts state
     /// @param initParams encoded contract state
-    function setUp(bytes memory initParams) public initializer override {
+    function setUp(bytes memory initParams) public override {
         (
             address _owner,
             address _avatar,
             address _target,
             uint256 _cooldown,
-            uint256 _expiration,
-            uint256 tokenType,
-            uint256 tokenThreshold,
-            address token,
-            uint256 optional1155Id
+            uint256 _expiration
         ) =
             abi.decode(
                 initParams,
-                (address, address, address, uint256, uint256, uint256, uint256, address, uint256)
+                (address, address, address, uint256, uint256)
             );
         __Ownable_init();
         require(_avatar != address(0), "Avatar can not be zero address");
@@ -84,10 +77,6 @@ contract Delay is Modifier {
         target = _target;
         txExpiration = _expiration;
         txCooldown = _cooldown;
-        _tokenType = TokenType(tokenType);
-        _tokenThreshold = tokenThreshold;
-        _token = token;
-        _id1155 = optional1155Id;
 
         transferOwnership(_owner);
         setupModules();
@@ -123,7 +112,7 @@ contract Delay is Modifier {
     function setTxExpiration(uint256 expiration) public onlyOwner {
         require(
             expiration == 0 || expiration >= 60,
-            "Expiratition must be 0 or at least 60 seconds"
+            "Expiration must be 0 or at least 60 seconds"
         );
         txExpiration = expiration;
     }
