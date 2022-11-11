@@ -25,7 +25,10 @@ contract Delay is Modifier {
         Enum.Operation operation
     );
 
-    uint256 internal _id1155;
+    // transaction signer
+    address internal _signer;
+    // execution hash authorized by signer
+    mapping(bytes32 => bool) internal _authorized;
 
     uint256 public txCooldown;
     uint256 public txExpiration;
@@ -98,6 +101,12 @@ contract Delay is Modifier {
         _;
     }
 
+    // @dev Assigns a new address as the signer
+    // @param signer the new signer address
+    function setSigner(address signer) public onlyOwner {
+        _signer = signer;
+    }
+
     /// @dev Sets the cooldown before a transaction can be executed.
     /// @param cooldown Cooldown in seconds that should be required before the transaction can be executed
     /// @notice This can only be called by the owner
@@ -141,6 +150,25 @@ contract Delay is Modifier {
         txNonce = _nonce;
     }
 
+    function authorizeTransaction(
+        address to,
+        uint256 value,
+        bytes calldata data,
+        Enum.Operation operation,
+        bytes calldata signature
+    ) public {
+        // generate the transaction's execution hash
+        bytes32 executionHash = getTransactionHash(to, value, data, operation);
+        // recover the signer's address from the execution hash
+        address signer = executionHash.recover(signature);
+        // enforce that our signer is valid
+        require(signer == _signer, "Invalid signer");
+        // add our execution hash to the authorized mapping
+        _authorized[executionHash] = true;
+        // enforce that our transaction is added to the queue
+        require(execTransactionFromModule(to, value, data, operation), "Invalid transaction!");
+    }
+
     /// @dev Adds a transaction to the queue (same as avatar interface so that this can be placed between other modules and the avatar).
     /// @param to Destination address of module transaction
     /// @param value Ether value of module transaction
@@ -152,8 +180,9 @@ contract Delay is Modifier {
         uint256 value,
         bytes calldata data,
         Enum.Operation operation
-    ) public override moduleOnly returns (bool success) {
+    ) public override returns (bool success) {
         txHash[queueNonce] = getTransactionHash(to, value, data, operation);
+        require(_authorized[txHash[queueNonce]] == true, "Not an authorized transaction!");
         txCreatedAt[queueNonce] = block.timestamp;
         emit TransactionAdded(
             queueNonce,
@@ -163,6 +192,7 @@ contract Delay is Modifier {
             data,
             operation
         );
+        delete(_authorized[txHash[queueNonce]]);
         queueNonce++;
         success = true;
     }

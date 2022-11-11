@@ -3,11 +3,20 @@ pragma solidity >=0.8.0;
 
 contract TestAvatar {
     address public module;
+    mapping(address => bool) internal _owners;
 
     receive() external payable {}
 
     function setModule(address _module) external {
         module = _module;
+    }
+
+    function setOwner(address newOwner) public {
+        _owners[newOwner] = true;
+    }
+
+    function isOwner(address owner) public view returns (bool) {
+        return _owners[owner];
     }
 
     function exec(address payable to, uint256 value, bytes calldata data) external {
