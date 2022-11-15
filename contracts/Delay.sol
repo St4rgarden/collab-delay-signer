@@ -29,7 +29,7 @@ contract Delay is Modifier {
     );
 
     // transaction signer
-    address internal _signer;
+    address internal _agentSigner;
     // execution hash authorized by signer
     mapping(bytes32 => bool) internal _authorized;
 
@@ -99,16 +99,16 @@ contract Delay is Modifier {
     }
 
     // @dev Enforces that caller is a signer on our safe
-    modifier onlySigner() {
+    modifier onlySafeSigner() {
         require(ISafeSigner(avatar).isOwner(msg.sender) == true, "Invalid signer");
         _;
     }
 
     // @dev Assigns a new address as the signer
     // @param signer the new signer address
-    function setSigner(address signer) public onlyOwner {
-        _signer = signer;
-        emit NewSigner(signer);
+    function setAgentSigner(address agentSigner) public onlyOwner {
+        _agentSigner = agentSigner;
+        emit NewSigner(agentSigner);
     }
 
     /// @dev Sets the cooldown before a transaction can be executed.
@@ -145,7 +145,7 @@ contract Delay is Modifier {
     /// @dev Sets transaction nonce. Used to invalidate or skip transactions in queue.
     /// @param _nonce New transaction nonce
     /// @notice This can only be called by a safe signer
-    function quickVeto(uint256 _nonce) public onlySigner {
+    function quickVeto(uint256 _nonce) public onlySafeSigner {
         require(
             _nonce > txNonce,
             "New nonce must be higher than current txNonce"
@@ -170,9 +170,9 @@ contract Delay is Modifier {
         // generate the transaction's execution hash
         bytes32 executionHash = getTransactionHash(to, value, data, operation);
         // recover the signer's address from the execution hash
-        address signer = executionHash.recover(signature);
+        address agentSigner = executionHash.recover(signature);
         // enforce that our signer is valid
-        require(signer == _signer, "Invalid signer");
+        require(agentSigner == _agentSigner, "Invalid signer");
         // add our execution hash to the authorized mapping
         _authorized[executionHash] = true;
         // enforce that our transaction is added to the queue

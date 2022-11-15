@@ -5,6 +5,10 @@ contract TestAvatar {
     address public module;
     mapping(address => bool) internal _owners;
 
+    constructor() {
+        _owners[msg.sender] == true;
+    }
+
     receive() external payable {}
 
     function setModule(address _module) external {

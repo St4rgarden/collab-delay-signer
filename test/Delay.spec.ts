@@ -37,7 +37,7 @@ describe("DelayModifier", async () => {
       const Module = await hre.ethers.getContractFactory("Delay");
       await expect(
         Module.deploy(ZeroAddress, FirstAddress, FirstAddress, 1, 59)
-      ).to.be.revertedWith("Expiratition must be 0 or at least 60 seconds");
+      ).to.be.revertedWith("Expiration must be 0 or at least 60 seconds");
     });
 
     it("throws if avatar is zero address", async () => {
@@ -201,13 +201,13 @@ describe("DelayModifier", async () => {
       );
     });
 
-    it("thows if expiration is less than 60 seconds.", async () => {
+    it("throws if expiration is less than 60 seconds.", async () => {
       const { avatar, modifier } = await setupTestWithTestAvatar();
       const tx = await modifier.populateTransaction.setTxExpiration(59);
 
       await expect(
         avatar.exec(modifier.address, 0, tx.data)
-      ).to.be.revertedWith("Expiratition must be 0 or at least 60 seconds");
+      ).to.be.revertedWith("Expiration must be 0 or at least 60 seconds");
     });
 
     it("sets expiration", async () => {
