@@ -5,6 +5,7 @@ pragma solidity >=0.8.0;
 import "@gnosis.pm/zodiac/contracts/core/Modifier.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "./interfaces/ISafeSigner.sol";
+import "hardhat/console.sol";
 
 contract Delay is Modifier {
 
@@ -167,14 +168,19 @@ contract Delay is Modifier {
         Enum.Operation operation,
         bytes calldata signature
     ) public {
-        // generate the transaction's execution hash
-        bytes32 executionHash = getTransactionHash(to, value, data, operation);
+
+        // generate the transaction's eth message execution hash
+        bytes32 executionHash = getExecutionHash(to, value, data, operation);
+
         // recover the signer's address from the execution hash
         address agentSigner = executionHash.recover(signature);
+
         // enforce that our signer is valid
         require(agentSigner == _agentSigner, "Invalid signer");
+
         // add our execution hash to the authorized mapping
         _authorized[executionHash] = true;
+
         // enforce that our transaction is added to the queue
         require(execTransactionFromModule(to, value, data, operation), "Invalid transaction!");
     }
@@ -191,7 +197,8 @@ contract Delay is Modifier {
         Enum.Operation operation
     ) public override returns (bool success) {
         txHash[queueNonce] = getTransactionHash(to, value, data, operation);
-        require(_authorized[txHash[queueNonce]] == true, "Not an authorized transaction!");
+        bytes32 executionHash = getExecutionHash(to, value, data, operation);
+        require(_authorized[executionHash] == true, "Not an authorized transaction!");
         txCreatedAt[queueNonce] = block.timestamp;
         emit TransactionAdded(
             queueNonce,
@@ -264,11 +271,30 @@ contract Delay is Modifier {
         return keccak256(abi.encodePacked(to, value, data, operation));
     }
 
+    /// @dev retrieves the execution hash for a given function call
+    /// @param to Destination address of module transaction
+    /// @param value Ether value of module transaction
+    /// @param data Data payload of module transaction
+    /// @param operation Operation type of module transaction
+    function getExecutionHash(
+        address to,
+        uint256 value,
+        bytes memory data,
+        Enum.Operation operation
+    ) public pure returns (bytes32) {
+        bytes32 transactionHash = keccak256(abi.encodePacked(to, value, data, operation));
+        return transactionHash.toEthSignedMessageHash();
+    }
+
     function getTxHash(uint256 _nonce) public view returns (bytes32) {
         return (txHash[_nonce]);
     }
 
     function getTxCreatedAt(uint256 _nonce) public view returns (uint256) {
         return (txCreatedAt[_nonce]);
+    }
+
+    function getAgentSigner() public view returns (address) {
+        return _agentSigner;
     }
 }

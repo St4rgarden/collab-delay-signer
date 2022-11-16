@@ -1,20 +1,26 @@
 import { expect } from "chai";
-import hre, { deployments, waffle } from "hardhat";
+import hre, {deployments, waffle} from "hardhat";
 import "@nomiclabs/hardhat-ethers";
+import {getSigners} from "@nomiclabs/hardhat-ethers/dist/src/helpers";
+import {Signer} from "ethers";
+import {arrayify} from "ethers/lib/utils";
 
 const ZeroState =
   "0x0000000000000000000000000000000000000000000000000000000000000000";
 const ZeroAddress = "0x0000000000000000000000000000000000000000";
 const FirstAddress = "0x0000000000000000000000000000000000000001";
 
-describe("DelayModifier", async () => {
+let agentSigner: Signer;
+
+describe("SignerDelayModifier", async () => {
   const baseSetup = deployments.createFixture(async () => {
     await deployments.fixture();
     const Avatar = await hre.ethers.getContractFactory("TestAvatar");
     const avatar = await Avatar.deploy();
     const Mock = await hre.ethers.getContractFactory("MockContract");
     const mock = await Mock.deploy();
-    return { Avatar, avatar, mock };
+    [ agentSigner ] = await getSigners(hre);
+    return { Avatar, avatar, mock, agentSigner };
   });
 
   const setupTestWithTestAvatar = deployments.createFixture(async () => {
@@ -27,6 +33,7 @@ describe("DelayModifier", async () => {
       0,
       "0x1337"
     );
+    await base.avatar.setDelaySigner(modifier.address, agentSigner.getAddress());
     return { ...base, Modifier, modifier };
   });
 
@@ -193,6 +200,14 @@ describe("DelayModifier", async () => {
     });
   });
 
+  describe("setSigner()", async () => {
+    it("should set and return the correct signer", async () => {
+      const { modifier, agentSigner } = await setupTestWithTestAvatar();
+      const signer = await modifier.getAgentSigner();
+      expect(signer).to.be.equals(await agentSigner.getAddress());
+    });
+  });
+
   describe("setTxExpiration()", async () => {
     it("throws if not authorized", async () => {
       const { modifier } = await setupTestWithTestAvatar();
@@ -230,7 +245,7 @@ describe("DelayModifier", async () => {
       );
     });
 
-    it("thows if nonce is less than current nonce.", async () => {
+    it("throws if nonce is less than current nonce.", async () => {
       const { avatar, modifier } = await setupTestWithTestAvatar();
       const tx = await modifier.populateTransaction.setTxExpiration(60);
       const tx2 = await modifier.populateTransaction.setTxNonce(0);
@@ -241,12 +256,14 @@ describe("DelayModifier", async () => {
       ).to.be.revertedWith("New nonce must be higher than current txNonce");
     });
 
-    it("thows if nonce is more than queueNonce + 1.", async () => {
+    it("throws if nonce is more than queueNonce + 1.", async () => {
       const { avatar, modifier } = await setupTestWithTestAvatar();
       const tx = await modifier.populateTransaction.enableModule(user1.address);
       const tx2 = await modifier.populateTransaction.setTxNonce(42);
       await expect(avatar.exec(modifier.address, 0, tx.data));
-      await modifier.execTransactionFromModule(user1.address, 0, "0x", 0);
+      const transactionHash = arrayify(await modifier.getTransactionHash(user1.address, 0, "0x", 0));
+      const signature = await agentSigner.signMessage(transactionHash);
+      await modifier.authorizeTransaction(user1.address, 0, "0x", 0, signature);
 
       await expect(
         avatar.exec(modifier.address, 0, tx2.data)
@@ -261,7 +278,9 @@ describe("DelayModifier", async () => {
 
       await expect(txNonce._hex).to.be.equals("0x00");
       await avatar.exec(modifier.address, 0, tx.data);
-      await modifier.execTransactionFromModule(user1.address, 0, "0x", 0);
+      const transactionHash = arrayify(await modifier.getTransactionHash(user1.address, 0, "0x", 0));
+      const signature = await agentSigner.signMessage(transactionHash);
+      await modifier.authorizeTransaction(user1.address, 0, "0x", 0, signature);
       await expect(avatar.exec(modifier.address, 0, tx2.data));
       txNonce = await modifier.txNonce();
       await expect(txNonce._hex).to.be.equals("0x01");
@@ -269,12 +288,6 @@ describe("DelayModifier", async () => {
   });
 
   describe("execTransactionFromModule()", async () => {
-    it("throws if not authorized", async () => {
-      const { modifier } = await setupTestWithTestAvatar();
-      await expect(
-        modifier.execTransactionFromModule(user1.address, 0, "0x", 0)
-      ).to.be.revertedWith("Module not authorized");
-    });
 
     it("increments queueNonce", async () => {
       const { avatar, modifier } = await setupTestWithTestAvatar();
@@ -283,7 +296,9 @@ describe("DelayModifier", async () => {
       let queueNonce = await modifier.queueNonce();
 
       await expect(queueNonce._hex).to.be.equals("0x00");
-      await modifier.execTransactionFromModule(user1.address, 0, "0x", 0);
+      const transactionHash = arrayify(await modifier.getTransactionHash(user1.address, 0, "0x", 0));
+      const signature = await agentSigner.signMessage(transactionHash);
+      await modifier.authorizeTransaction(user1.address, 0, "0x", 0, signature);
       queueNonce = await modifier.queueNonce();
       await expect(queueNonce._hex).to.be.equals("0x01");
     });
@@ -296,7 +311,9 @@ describe("DelayModifier", async () => {
       let txHash = await modifier.getTransactionHash(user1.address, 0, "0x", 0);
 
       await expect(await modifier.getTxHash(0)).to.be.equals(ZeroState);
-      await modifier.execTransactionFromModule(user1.address, 0, "0x", 0);
+      const transactionHash = arrayify(await modifier.getTransactionHash(user1.address, 0, "0x", 0));
+      const signature = await agentSigner.signMessage(transactionHash);
+      await modifier.authorizeTransaction(user1.address, 0, "0x", 0, signature);
       await expect(await modifier.getTxHash(0)).to.be.equals(txHash);
     });
 
@@ -307,11 +324,14 @@ describe("DelayModifier", async () => {
       await avatar.exec(modifier.address, 0, tx.data);
 
       await expect(expectedTimestamp._hex).to.be.equals("0x00");
-      let receipt = await modifier.execTransactionFromModule(
+      const transactionHash = arrayify(await modifier.getTransactionHash(user1.address, 0, "0x", 0));
+      const signature = await agentSigner.signMessage(transactionHash);
+      let receipt = await modifier.authorizeTransaction(
         user1.address,
         0,
         "0x",
-        0
+        0,
+        signature
       );
       let blockNumber = receipt.blockNumber;
 
@@ -330,8 +350,10 @@ describe("DelayModifier", async () => {
       await avatar.exec(modifier.address, 0, tx.data);
       const expectedQueueNonce = await modifier.queueNonce;
 
+      const transactionHash = arrayify(await modifier.getTransactionHash(user1.address, 42, "0x", 0));
+      const signature = await agentSigner.signMessage(transactionHash);
       await expect(
-        modifier.execTransactionFromModule(user1.address, 42, "0x", 0)
+        modifier.authorizeTransaction(user1.address, 42, "0x", 0, signature)
       )
         .to.emit(modifier, "TransactionAdded")
         .withArgs(
@@ -364,7 +386,9 @@ describe("DelayModifier", async () => {
       tx = await modifier.populateTransaction.enableModule(user1.address);
       await avatar.exec(modifier.address, 0, tx.data);
 
-      await modifier.execTransactionFromModule(user1.address, 42, "0x", 0);
+      const transactionHash = arrayify(await modifier.getTransactionHash(user1.address, 42, "0x", 0));
+      const signature = await agentSigner.signMessage(transactionHash);
+      await modifier.authorizeTransaction(user1.address, 42, "0x", 0, signature);
       await expect(
         modifier.executeNextTx(user1.address, 42, "0x", 0)
       ).to.be.revertedWith("Transaction is still in cooldown");
@@ -376,7 +400,10 @@ describe("DelayModifier", async () => {
       await avatar.exec(modifier.address, 0, tx.data);
 
       await avatar.setModule(modifier.address);
-      await modifier.execTransactionFromModule(user1.address, 0, "0x", 0);
+
+      const transactionHash = arrayify(await modifier.getTransactionHash(user1.address, 0, "0x", 0));
+      const signature = await agentSigner.signMessage(transactionHash);
+      await modifier.authorizeTransaction(user1.address, 0, "0x", 0, signature);
       let expiry = await modifier.txCreatedAt(0);
       await hre.network.provider.send("evm_setNextBlockTimestamp", [
         4242424242,
@@ -392,7 +419,10 @@ describe("DelayModifier", async () => {
       await avatar.exec(modifier.address, 0, tx.data);
 
       await avatar.setModule(modifier.address);
-      await modifier.execTransactionFromModule(user1.address, 0, "0x", 0);
+
+      const transactionHash = arrayify(await modifier.getTransactionHash(user1.address, 0, "0x", 0));
+      const signature = await agentSigner.signMessage(transactionHash);
+      await modifier.authorizeTransaction(user1.address, 0, "0x", 0, signature);
       let block = await hre.network.provider.send("eth_getBlockByNumber", [
         "latest",
         false,
@@ -410,7 +440,9 @@ describe("DelayModifier", async () => {
       await avatar.exec(modifier.address, 0, tx.data);
 
       await avatar.setModule(modifier.address);
-      await modifier.execTransactionFromModule(user1.address, 1, "0x", 0);
+      const transactionHash = arrayify(await modifier.getTransactionHash(user1.address, 1, "0x", 0));
+      const signature = await agentSigner.signMessage(transactionHash);
+      await modifier.authorizeTransaction(user1.address, 1, "0x", 0, signature);
       let block = await hre.network.provider.send("eth_getBlockByNumber", [
         "latest",
         false,
@@ -428,7 +460,9 @@ describe("DelayModifier", async () => {
       await avatar.exec(modifier.address, 0, tx.data);
 
       await avatar.setModule(modifier.address);
-      await modifier.execTransactionFromModule(user1.address, 0, "0x", 0);
+      const transactionHash = arrayify(await modifier.getTransactionHash(user1.address, 0, "0x", 0));
+      const signature = await agentSigner.signMessage(transactionHash);
+      await modifier.authorizeTransaction(user1.address, 0, "0x", 0, signature);
       let block = await hre.network.provider.send("eth_getBlockByNumber", [
         "latest",
         false,
@@ -447,7 +481,9 @@ describe("DelayModifier", async () => {
 
       await avatar.setModule(modifier.address);
       for (let i = 0; i < 3; i++) {
-        await modifier.execTransactionFromModule(user1.address, 0, "0x", 0);
+        const transactionHash = arrayify(await modifier.getTransactionHash(user1.address, 0, "0x", 0));
+        const signature = await agentSigner.signMessage(transactionHash);
+        await modifier.authorizeTransaction(user1.address, 0, "0x", 0, signature);
       }
       let block = await hre.network.provider.send("eth_getBlockByNumber", [
         "latest",

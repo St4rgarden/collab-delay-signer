@@ -1,12 +1,16 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 pragma solidity >=0.8.0;
 
+interface IDelay {
+    function setAgentSigner(address signer) external;
+}
+
 contract TestAvatar {
     address public module;
-    mapping(address => bool) internal _owners;
+    mapping(address => bool) public owners;
 
     constructor() {
-        _owners[msg.sender] == true;
+        owners[msg.sender] == true;
     }
 
     receive() external payable {}
@@ -16,11 +20,15 @@ contract TestAvatar {
     }
 
     function setOwner(address newOwner) public {
-        _owners[newOwner] = true;
+        owners[newOwner] = true;
     }
 
     function isOwner(address owner) public view returns (bool) {
-        return _owners[owner];
+        return owners[owner];
+    }
+
+    function setDelaySigner(address delay, address signer) public {
+        IDelay(delay).setAgentSigner(signer);
     }
 
     function exec(address payable to, uint256 value, bytes calldata data) external {
