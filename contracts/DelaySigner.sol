@@ -59,7 +59,7 @@ contract DelaySigner is Modifier {
 
     /// @dev initializes the contracts state
     /// @param initParams encoded contract state
-    function setUp(bytes memory initParams) public override {
+    function setUp(bytes memory initParams) public initializer override {
         (
             address _owner,
             address _avatar,
