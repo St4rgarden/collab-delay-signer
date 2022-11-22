@@ -5,7 +5,6 @@ pragma solidity >=0.8.0;
 import "@gnosis.pm/zodiac/contracts/core/Modifier.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "./interfaces/ISafeSigner.sol";
-import "hardhat/console.sol";
 
 contract DelaySigner is Modifier {
 
