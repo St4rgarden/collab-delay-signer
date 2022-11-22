@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "./interfaces/ISafeSigner.sol";
 import "hardhat/console.sol";
 
-contract Delay is Modifier {
+contract DelaySigner is Modifier {
 
     using ECDSA for bytes32;
 

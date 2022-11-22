@@ -25,7 +25,7 @@ describe("SignerDelayModifier", async () => {
 
   const setupTestWithTestAvatar = deployments.createFixture(async () => {
     const base = await baseSetup();
-    const Modifier = await hre.ethers.getContractFactory("Delay");
+    const Modifier = await hre.ethers.getContractFactory("DelaySigner");
     const modifier = await Modifier.deploy(
       base.avatar.address,
       base.avatar.address,
@@ -41,33 +41,33 @@ describe("SignerDelayModifier", async () => {
 
   describe("setUp()", async () => {
     it("throws if not enough time between txCooldown and txExpiration", async () => {
-      const Module = await hre.ethers.getContractFactory("Delay");
+      const Module = await hre.ethers.getContractFactory("DelaySigner");
       await expect(
         Module.deploy(ZeroAddress, FirstAddress, FirstAddress, 1, 59)
       ).to.be.revertedWith("Expiration must be 0 or at least 60 seconds");
     });
 
     it("throws if avatar is zero address", async () => {
-      const Module = await hre.ethers.getContractFactory("Delay");
+      const Module = await hre.ethers.getContractFactory("DelaySigner");
       await expect(
         Module.deploy(ZeroAddress, ZeroAddress, FirstAddress, 1, 0)
       ).to.be.revertedWith("Avatar can not be zero address");
     });
 
     it("throws if target is zero address", async () => {
-      const Module = await hre.ethers.getContractFactory("Delay");
+      const Module = await hre.ethers.getContractFactory("DelaySigner");
       await expect(
         Module.deploy(ZeroAddress, FirstAddress, ZeroAddress, 1, 0)
       ).to.be.revertedWith("Target can not be zero address");
     });
 
     it("txExpiration can be 0", async () => {
-      const Module = await hre.ethers.getContractFactory("Delay");
+      const Module = await hre.ethers.getContractFactory("DelaySigner");
       await Module.deploy(user1.address, user1.address, user1.address, 1, 0);
     });
 
     it("should emit event because of successful set up", async () => {
-      const Module = await hre.ethers.getContractFactory("Delay");
+      const Module = await hre.ethers.getContractFactory("DelaySigner");
       const module = await Module.deploy(
         user1.address,
         user1.address,
