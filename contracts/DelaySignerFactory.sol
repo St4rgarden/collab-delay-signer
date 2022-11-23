@@ -1,11 +1,22 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 pragma solidity >=0.8.0;
 
+
+interface ISigner {
+
+    function setAgentSigner(address signer) external;
+
+    function setUp(bytes memory initParams) external;
+
+}
+
 contract ModuleProxyFactory {
     event ModuleProxyCreation(
         address indexed proxy,
         address indexed masterCopy
     );
+
+    uint256 internal _saltCounter;
 
     function createProxy(address target, bytes32 salt)
         internal
@@ -29,16 +40,27 @@ contract ModuleProxyFactory {
 
     function deployModule(
         address masterCopy,
-        bytes memory initializer,
-        uint256 saltNonce
+        address owner,
+        address avatar,
+        address target,
+        uint256 cooldown,
+        uint256 expiration,
+        address agentSigner
     ) public returns (address proxy) {
+
+        bytes memory initializer = abi.encode(owner, avatar, target, cooldown, expiration);
+
         proxy = createProxy(
             masterCopy,
-            keccak256(abi.encodePacked(keccak256(initializer), saltNonce))
+            keccak256(abi.encodePacked(keccak256(initializer), _saltCounter))
         );
-        (bool success, ) = proxy.call(initializer);
-        require(success, "deployModule: initialization failed");
+
+        ISigner(proxy).setAgentSigner(agentSigner);
+
+        ISigner(proxy).setUp(initializer);
 
         emit ModuleProxyCreation(proxy, masterCopy);
+
+        _saltCounter++;
     }
 }
