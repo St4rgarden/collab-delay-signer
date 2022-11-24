@@ -1,6 +1,8 @@
 # ECDSA Support for Authorized Signer Only Executions
 
-We are building a bot for authoring and voting on proposals directly in Discord.  The voting enabled commands and channels will be token gated by the Collab.Land bot - but we need some training wheels to enhance security.  Our bot will require authentication from a separate agent.  The agent will enforce a set of conditions on any proposals; signing the proposal's execution hash only when it's a valid proposal.  
+We are building a bot for authoring and voting on proposals directly in Discord.  The voting enabled commands and channels will be token gated by the Collab.Land bot - but we need some training wheels to enhance security.  Our bot will require authentication from a separate agent.  The agent will enforce a set of conditions on any proposals; signing the proposal's execution hash only when it's a valid proposal.
+
+Detailed documentation and changelog: https://hackmd.io/ZHIZGhDcSAerenfyqCxM4g  
 
 # Zodiac Delay Modifier
 
