@@ -10,7 +10,7 @@ interface ISigner {
 
 }
 
-contract ModuleProxyFactory {
+contract DelaySignerFactory {
     event ModuleProxyCreation(
         address indexed proxy,
         address indexed masterCopy

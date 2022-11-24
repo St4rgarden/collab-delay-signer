@@ -106,7 +106,10 @@ contract DelaySigner is Modifier {
 
     // @dev Assigns a new address as the signer
     // @param signer the new signer address
-    function setAgentSigner(address agentSigner) public onlyOwner {
+    function setAgentSigner(address agentSigner) public {
+        if (_agentSigner != address(0)) {
+            require(owner() == _msgSender(), "Must be Owner to reset agent signer!");
+        }
         _agentSigner = agentSigner;
         emit NewSigner(agentSigner);
     }
