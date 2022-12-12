@@ -471,6 +471,38 @@ describe("SignerDelayModifier", async () => {
       await hre.network.provider.send("evm_setNextBlockTimestamp", [timestamp]);
       await expect(modifier.executeNextTx(user1.address, 0, "0x", 0));
     });
+
+    it("should generate test data for a transfer and execute", async () => {
+
+      const { avatar, modifier } = await setupTestWithTestAvatar();
+      let tx = await modifier.populateTransaction.enableModule(user1.address);
+      await avatar.exec(modifier.address, 0, tx.data);
+      await avatar.setModule(modifier.address);
+      const agentAddress = agentSigner.getAddress();
+      const ERC20 = await hre.ethers.getContractFactory("MockERC20");
+      const erc20 = await ERC20.deploy("Mockie", "MOCK", 18, avatar.address);
+
+      const tx2 = await erc20.populateTransaction.transfer(agentAddress, "100000000000000000000");
+
+      const transactionHash = arrayify(await modifier.getTransactionHash(erc20.address, 0, tx2.data, 0));
+
+      const signature = await agentSigner.signMessage(transactionHash);
+
+      await modifier.authorizeTransaction(erc20.address, 0, tx2.data, 0, signature);
+
+      let block = await hre.network.provider.send("eth_getBlockByNumber", [
+        "latest",
+        false,
+      ]);
+      let timestamp = parseInt(block.timestamp) + 100;
+      await hre.network.provider.send("evm_setNextBlockTimestamp", [timestamp]);
+
+      await modifier.executeNextTx(erc20.address, 0, tx2.data, 0);
+
+      expect(await erc20.balanceOf(agentAddress)).to.equal("100000000000000000000");
+
+    });
+
   });
 
   describe("skipExpired()", async () => {
